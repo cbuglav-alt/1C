@@ -13,6 +13,8 @@
 | **Производственный календарь** | `data/holidays.csv` | Переносы сроков на рабочие дни |
 | **Генератор плана** | `tools/generate_plan.py` | Разворачивает каталог на клиентов и выдаёт план на месяц |
 | **Регламенты** | `regulations/` | Роли, SLA, онбординг, эскалации, настройка CRM |
+| **Чек-лист Finkoper** | `regulations/10-finkoper-checklist.md` | Что должно быть заполнено в CRM по инструкциям сервиса |
+| **Реестр полей CRM** | `data/finkoper_custom_fields.csv` | Собственные поля, которые надо завести в Finkoper |
 | **Чек-листы** | `regulations/checklists/` | Пошаговые инструкции внутри задач |
 
 ## Быстрый старт
@@ -32,6 +34,18 @@ python3 tools/generate_plan.py --month 2026-10 --clients data/clients.csv
 ```
 
 Весь год сразу: `python3 tools/generate_plan.py --year 2027 --clients data/clients.csv`
+
+## Проверка CRM перед генерацией
+
+```bash
+# Выгрузите клиентов: Настройки → Клиенты → Экспорт клиентов в XLSX
+python3 tools/audit_finkoper.py --file export_clients.xlsx   # что не заполнено в Finkoper
+python3 tools/audit_clients.py  --file export_clients.xlsx   # какие задачи из-за этого не сформируются
+```
+
+Первый скрипт сверяет базу с [чек-листом по инструкциям Finkoper](regulations/10-finkoper-checklist.md),
+второй — с требованиями генератора плана. Норма перед ежемесячной генерацией —
+ноль замечаний уровня «Критично».
 
 ## Как это работает
 
@@ -70,6 +84,7 @@ python3 tools/generate_plan.py --month 2026-10 --clients data/clients.csv
 8. [Онбординг клиента](regulations/07-onboarding.md)
 9. [Эскалации и риски](regulations/08-escalations.md)
 10. [Внедрение: план на 4 недели](regulations/09-rollout.md)
+11. [Чек-лист заполненности Finkoper](regulations/10-finkoper-checklist.md)
 
 ## Дисклеймер
 
