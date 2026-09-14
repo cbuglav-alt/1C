@@ -185,7 +185,7 @@ def audit(rows: list[dict], mapping: dict) -> tuple[list[dict], int]:
         emp = int(emp_raw) if emp_raw else None
 
         # --- поля, которые проверяются «заполнено / не заполнено» ---
-        simple = ['name', 'representative', 'email', 'accountant', 'chief', 'sno',
+        simple = ['name', 'representative', 'accountant', 'chief', 'sno',
                   'contract_no', 'contract_date', 'tariff', 'contract_sum',
                   'shift', 'tags', 'status', 'start_date']
         for f in simple:
@@ -237,7 +237,7 @@ def audit(rows: list[dict], mapping: dict) -> tuple[list[dict], int]:
                              'Замечание': 'Режим ПСН, но раздел «Патенты» не заполнен',
                              'Последствие': FIELDS['patent'][2]})
 
-        # --- ни одного канала связи ---
+        # --- каналы связи ---
         channels = [f for f in ('email', 'telegram', 'phone') if f in mapping]
         if channels and not any(has(row, mapping, f) for f in channels):
             findings.append({'Строка': i, 'Клиент': name, 'Уровень': 'Критично',
@@ -246,6 +246,10 @@ def audit(rows: list[dict], mapping: dict) -> tuple[list[dict], int]:
                                           '(почта, Telegram, телефон)',
                              'Последствие': 'Запрос документов уходит мимо CRM, '
                                             'история переписки не сохраняется'})
+        elif 'email' in mapping and not has(row, mapping, 'email'):
+            findings.append({'Строка': i, 'Клиент': name, 'Уровень': 'Критично',
+                             'Поле': 'email', 'Замечание': 'Не заполнено',
+                             'Последствие': FIELDS['email'][2]})
 
     return findings, active
 
@@ -278,6 +282,12 @@ def main() -> int:
     print(f'Файл: {os.path.basename(args.file)}')
     print(f'Клиентов в выгрузке: {len(rows)}, активных: {active}')
     print(f'Распознано полей чек-листа: {len(mapping)} из {len(FIELDS)}')
+    unmapped = [h for h in headers if h and h not in mapping.values()]
+    if unmapped:
+        print('Колонки выгрузки без сопоставления: ' + ', '.join(unmapped[:12])
+              + (' …' if len(unmapped) > 12 else ''))
+        print('Если среди них есть поле из чек-листа — укажите его через --map, '
+              'например: {"email": "Почта клиента"}')
     print()
     if absent:
         print('НЕТ В CRM (поля не заведены — автоматизация не работает ни по одному клиенту):')
