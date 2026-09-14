@@ -76,3 +76,16 @@ python3 tools/generate_plan.py --month 2026-10 --clients data/clients.csv
 Сроки и составы отчётности в каталоге отражают общий порядок и требуют сверки
 с актуальной редакцией НК РФ и производственным календарём перед началом каждого года.
 Порядок актуализации — в [регламенте обновления каталога](regulations/03-task-catalog.md#актуализация).
+
+## Панель задач
+
+Интерактивная версия плана (демо-справочник, весь 2026 год):
+**https://claude.ai/code/artifact/39552513-8fd2-44a9-8257-5dccc65ded2b**
+
+Пересобрать под свои данные:
+
+```bash
+python3 tools/export_dashboard.py --year 2026 --clients data/clients.csv
+```
+
+Скрипт обновляет `dashboard/plan-data.js`, страница `dashboard/index.html` открывается локально.
