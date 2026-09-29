@@ -31,7 +31,7 @@ MONTHS_RU_GEN = ['', 'января', 'февраля', 'марта', 'апрел
 QUARTERS_RU = {1: 'I квартал', 2: 'II квартал', 3: 'III квартал', 4: 'IV квартал'}
 CUM_RU = {4: 'I квартал', 7: 'полугодие', 10: '9 месяцев'}
 
-BOOL_FIELDS = ('nds', 'gph', 'kassa', 'ved', 'prop', 'alco', 'mark', 'op')
+BOOL_FIELDS = ('nds', 'psn', 'gph', 'kassa', 'ved', 'prop', 'alco', 'mark', 'op')
 INT_FIELDS = ('employees', 'advance_day', 'salary_day')
 
 
@@ -198,11 +198,11 @@ def build_task(task: dict, client: dict, year: int, month: int, cal: WorkCalenda
 
 def assignee_for(role: str, client: dict) -> str:
     mapping = {
-        'ASSIST': client.get('accountant', ''),
+        'ASSIST': client.get('assistant') or client.get('accountant', ''),
         'ACCT': client.get('accountant', ''),
         'PAYROLL': client.get('payroll') or client.get('accountant', ''),
-        'CHIEF': client.get('chief', ''),
-        'HEAD': client.get('chief', ''),
+        'CHIEF': client.get('chief') or client.get('accountant', ''),
+        'HEAD': client.get('chief') or client.get('accountant', ''),
     }
     return mapping.get(role, client.get('accountant', ''))
 
