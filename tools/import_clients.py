@@ -23,11 +23,14 @@ from generate_plan import BOOL_FIELDS  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIELDS = ['client_id', 'name', 'inn', 'opf', 'sno', 'nds', 'psn', 'employees', 'gph', 'kassa',
-          'ved', 'prop', 'alco', 'mark', 'op', 'accountant', 'assistant', 'payroll', 'chief', 'manager',
+          'ved', 'prop', 'alco', 'mark', 'op', 'zero', 'mp', 'accountant', 'assistant', 'payroll', 'chief', 'manager',
           'tariff', 'advance_day', 'salary_day', 'status', 'start_date']
 
 # Написания режимов, которые встречаются в базах: «УСН д», «УСН д-р», «УСН 6%» и т.п.
 SNO_RULES = [
+    # объект АУСН меняет состав задач: при «доходах» первичку не запрашиваем
+    (r'аусн.*(д\s*[-/]\s*р|дох.*расх|20)', 'АУСН-ДР'),
+    (r'аусн.*(дох|\bд\b|8)', 'АУСН-Д'),
     (r'аусн', 'АУСН'),
     (r'есхн', 'ЕСХН'),
     (r'нпд|самозанят', 'НПД'),

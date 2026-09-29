@@ -15,6 +15,10 @@
     доп. реквизит «СНО» / «Доп к СНО» и теги → sno, nds, psn
     теги «Работодатель», «Только найм», заполненный «Бухгалтер ЗП» → есть сотрудники
     тег «ККТ»                        → kassa
+    тег «Нулевщик» или «Доп к СНО» = нулевщик → zero (без обработки первички)
+    тег «Маркетплейсы»               → mp (еженедельные выгрузки отчётов и УПД)
+    тег «АУСН» + «УСН доходы» / «УСН доходы-расходы» → АУСН-Д / АУСН-ДР;
+    объект не указан → АУСН (первичку запрашиваем, как при доходах минус расходы)
 Количества сотрудников и дней выплаты зарплаты в карточке нет: при наличии
 сотрудников ставится employees=1 и дни выплат по умолчанию (--advance-day/--salary-day).
 """
@@ -104,13 +108,20 @@ def main() -> int:
         rec['opf'] = 'ИП' if c['ВидКонтрагента'] == 'ИндивидуальныйПредприниматель' or 'ип' in t else 'ООО'
 
         sno_raw = x.get('СНО', '')
-        if not sno_raw or sno_raw.lower() == 'найм':
+        if 'аусн' in t:
+            # тег АУСН главнее реквизита: реквизит «СНО» часто остаётся от прошлого режима
+            obj = '-ДР' if 'усн доходы-расходы' in t else '-Д' if 'усн доходы' in t else ''
+            if not obj:
+                notes.append(f'{c["Description"]}: АУСН без объекта (доходы / доходы-расходы) — '
+                             'первичка запрашивается')
+            sno_raw = 'АУСН' + obj
+        elif not sno_raw or sno_raw.lower() == 'найм':
             for tag, value in (('аусн', 'АУСН'), ('есхн', 'ЕСХН'), ('осно', 'ОСНО'),
                                ('усн доходы-расходы', 'УСН-ДР'), ('усн доходы', 'УСН-Д')):
                 if tag in t:
                     sno_raw = value
                     break
-        rec['sno'] = norm_sno(sno_raw) if sno_raw else ''
+        rec['sno'] = sno_raw if sno_raw.startswith('АУСН') else norm_sno(sno_raw) if sno_raw else ''
         add = x.get('Доп к СНО', '')
         rec['nds'] = '1' if 'ндс' in t or 'ндс' in add.lower() or rec['sno'] == 'ОСНО' else '0'
         rec['psn'] = '1' if is_patent(add) or 'патент' in t else '0'
@@ -120,6 +131,8 @@ def main() -> int:
         has_staff = bool({'работодатель', 'только найм'} & t) or bool(x.get('Бухгалтер ЗП'))
         rec['employees'] = '1' if has_staff else '0'
         rec['kassa'] = '1' if 'ккт' in t else '0'
+        rec['zero'] = '1' if 'нулевщик' in t or 'нулевщик' in add.lower() else '0'
+        rec['mp'] = '1' if 'маркетплейсы' in t else '0'
         for f in ('gph', 'ved', 'prop', 'alco', 'mark', 'op'):
             rec[f] = '0'
 

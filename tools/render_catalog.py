@@ -13,7 +13,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, 'regulations/03-task-catalog.md')
 START, END = '<!-- CATALOG:START -->', '<!-- CATALOG:END -->'
 
-FREQ = {'M': 'ежемесячно', 'Q': 'ежеквартально', 'Y': 'ежегодно', 'E': 'по событию'}
+FREQ = {'W': 'еженедельно', 'M': 'ежемесячно', 'Q': 'ежеквартально', 'Y': 'ежегодно', 'E': 'по событию'}
 ROLE = {'ASSIST': 'Первичник', 'ACCT': 'Бухгалтер', 'PAYROLL': 'Зарплата',
         'CHIEF': 'Главбух', 'HEAD': 'Руководитель', 'CLIENT': 'Коммуникация'}
 MONTHS_SHORT = ['', 'янв', 'фев', 'мар', 'апр', 'май', 'июн',
@@ -32,7 +32,14 @@ def due_label(row):
     if legal:
         lead = int(row['lead_days'] or 0)
         suffix = f' (буфер {lead} р.д.)' if lead else ''
+        if row['int_due_day']:
+            suffix += f", не позже {row['int_due_day']} числа"
         return f'закон: {legal} числа{suffix}'
+    weekly = re.fullmatch(r'WD([1-5])', row['int_due_day'])
+    if weekly:
+        return ['понедельник', 'вторник', 'среда', 'четверг', 'пятница'][int(weekly.group(1)) - 1]
+    if row['int_due_day'] == 'last':
+        return 'последний рабочий день месяца'
     return f"внутренний: {row['int_due_day']} числа"
 
 

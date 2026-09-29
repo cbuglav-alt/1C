@@ -31,7 +31,7 @@ MONTHS_RU_GEN = ['', 'января', 'февраля', 'марта', 'апрел
 QUARTERS_RU = {1: 'I квартал', 2: 'II квартал', 3: 'III квартал', 4: 'IV квартал'}
 CUM_RU = {4: 'I квартал', 7: 'полугодие', 10: '9 месяцев'}
 
-BOOL_FIELDS = ('nds', 'psn', 'gph', 'kassa', 'ved', 'prop', 'alco', 'mark', 'op')
+BOOL_FIELDS = ('nds', 'psn', 'gph', 'kassa', 'ved', 'prop', 'alco', 'mark', 'op', 'zero', 'mp')
 INT_FIELDS = ('employees', 'advance_day', 'salary_day')
 
 
@@ -129,6 +129,13 @@ def period_label(period_code: str, year: int, month: int) -> str:
     return ''
 
 
+def week_label(due: dt.date) -> str:
+    """Прошлая календарная неделя относительно даты задачи: «28.09–04.10»."""
+    monday = due - dt.timedelta(days=due.weekday() + 7)
+    sunday = monday + dt.timedelta(days=6)
+    return f'{monday:%d.%m}–{sunday:%d.%m}'
+
+
 def resolve_day(token: str, client: dict, year: int, month: int) -> int | None:
     """Разбор дня внутреннего срока: число, 'last', 'ADV-2', 'SAL-1'."""
     token = (token or '').strip()
@@ -148,12 +155,40 @@ def resolve_day(token: str, client: dict, year: int, month: int) -> int | None:
     return None
 
 
-def build_task(task: dict, client: dict, year: int, month: int, cal: WorkCalendar) -> dict | None:
+def build_tasks(task: dict, client: dict, year: int, month: int, cal: WorkCalendar) -> list[dict]:
     months = [int(x) for x in task['months'].split(',') if x.strip()]
     if months and month not in months:
-        return None
+        return []
     if not task_applies(task['applies_if'], client):
-        return None
+        return []
+    if task['freq'] == 'W':
+        return weekly_tasks(task, client, year, month, cal)
+    row = build_task(task, client, year, month, cal)
+    return [row] if row else []
+
+
+def weekly_tasks(task: dict, client: dict, year: int, month: int, cal: WorkCalendar) -> list[dict]:
+    """Задача каждую неделю: int_due_day = WD1..WD5 (понедельник..пятница)."""
+    m = re.fullmatch(r'WD([1-5])', task['int_due_day'].strip())
+    if not m:
+        raise SystemExit(f'{task["code"]}: для freq=W нужен int_due_day вида WD1..WD5')
+    weekday = int(m.group(1)) - 1
+    last = calendar.monthrange(year, month)[1]
+    rows = []
+    for day in range(1, last + 1):
+        d = dt.date(year, month, day)
+        if d.weekday() != weekday:
+            continue
+        due = cal.forward(d)
+        if due.month != month:
+            continue
+        label = week_label(d)
+        rows.append(make_row(task, client, task['title'].replace('{period}', label), label,
+                             due, due, None))
+    return rows
+
+
+def build_task(task: dict, client: dict, year: int, month: int, cal: WorkCalendar) -> dict | None:
 
     legal_day = int(task['legal_due_day'] or 0)
     lead = int(task['lead_days'] or 0)
@@ -162,6 +197,10 @@ def build_task(task: dict, client: dict, year: int, month: int, cal: WorkCalenda
     if legal_day:
         legal_due = cal.forward(dt.date(year, month, min(legal_day, calendar.monthrange(year, month)[1])))
         internal_due = cal.minus_workdays(legal_due, lead)
+        # int_due_day рядом с законным сроком — «не позже этого дня» (порядок работ внутри месяца)
+        day = resolve_day(task['int_due_day'], client, year, month)
+        if day:
+            internal_due = min(internal_due, cal.backward(dt.date(year, month, day)))
     else:
         day = resolve_day(task['int_due_day'], client, year, month)
         if day is None:
@@ -175,7 +214,11 @@ def build_task(task: dict, client: dict, year: int, month: int, cal: WorkCalenda
 
     plabel = period_label(task['period'], year, month)
     title = task['title'].replace('{period}', plabel)
+    return make_row(task, client, title, plabel, start, internal_due, legal_due)
 
+
+def make_row(task: dict, client: dict, title: str, plabel: str, start: dt.date,
+             internal_due: dt.date, legal_due: dt.date | None) -> dict:
     return {
         'code': task['code'],
         'client_id': client['client_id'],
@@ -303,9 +346,7 @@ def generate_month(year: int, month: int, clients: list[dict], catalog: list[dic
         if (client.get('status') or 'active').strip() != 'active':
             continue
         for task in catalog:
-            row = build_task(task, client, year, month, cal)
-            if row:
-                rows.append(row)
+            rows.extend(build_tasks(task, client, year, month, cal))
     rows.sort(key=lambda r: (r['assignee'], r['client'], r['internal_due'], r['code']))
     return rows
 
