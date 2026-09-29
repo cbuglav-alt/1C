@@ -10,6 +10,8 @@
 Откуда берутся поля профиля:
     Главное → Ответственный          → manager   (коммуникация с клиентом)
     доп. реквизит «Главный бухгалтер» → accountant (ведущий бухгалтер клиента)
+    «СНО» = Найм или тег «Только найм» → sno=НАЙМ: только зарплатный блок, главбуха нет,
+        его задачи (акт и счёт и т.п.) уходят бухгалтеру ЗП
     доп. реквизит «Бухгалтер Первичник» → assistant
     доп. реквизит «Бухгалтер ЗП»     → payroll
     доп. реквизит «СНО» / «Доп к СНО» и теги → sno, nds, psn
@@ -30,6 +32,7 @@ import csv
 import json
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 from collections import defaultdict
@@ -46,14 +49,27 @@ class OData:
         token = base64.b64encode(f'{user}:{password}'.encode()).decode()
         self.headers = {'Authorization': f'Basic {token}', 'Accept': 'application/json'}
 
+    def _open(self, url: str):
+        req = urllib.request.Request(url, headers=self.headers)
+        return urllib.request.urlopen(req, timeout=300)
+
     def get(self, entity: str, select: str = '') -> list[dict]:
+        """Вся таблица целиком. Сервис иногда отдаёт неполный ответ — сверяемся с $count."""
         params = {'$format': 'json'}
         if select:
             params['$select'] = select
-        url = self.url + urllib.parse.quote(entity) + '?' + urllib.parse.urlencode(params)
-        req = urllib.request.Request(url, headers=self.headers)
-        with urllib.request.urlopen(req, timeout=300) as resp:
-            return json.load(resp)['value']
+        base = self.url + urllib.parse.quote(entity)
+        url = base + '?' + urllib.parse.urlencode(params)
+        for attempt in range(1, 4):
+            with self._open(url) as resp:
+                rows = json.load(resp)['value']
+            with self._open(base + '/$count') as resp:
+                expected = int(resp.read().decode().strip())
+            if len(rows) == expected:
+                return rows
+            print(f'  {entity}: получено {len(rows)} из {expected}, повтор {attempt}', file=sys.stderr)
+            time.sleep(2 * attempt)
+        raise SystemExit(f'{entity}: 1С отдаёт неполные данные, план не собран')
 
 
 def main() -> int:
@@ -62,6 +78,8 @@ def main() -> int:
     ap.add_argument('--out', default=os.path.join(ROOT, 'data/clients.csv'))
     ap.add_argument('--advance-day', default='20', help='день аванса, если в карточке не указан')
     ap.add_argument('--salary-day', default='5', help='день зарплаты, если в карточке не указан')
+    ap.add_argument('--include-deleted', action='store_true',
+                    help='брать и контрагентов, помеченных на удаление')
     args = ap.parse_args()
 
     try:
@@ -94,11 +112,15 @@ def main() -> int:
     clients = api.get('Catalog_Контрагенты', 'Ref_Key,Code,Description,ИНН,ВидКонтрагента,'
                                              'Ответственный_Key,DeletionMark,IsFolder')
     want = args.tag.lower()
-    out, notes = [], []
+    out, notes, deleted = [], [], []
     for c in clients:
         ref = c['Ref_Key']
-        if c['IsFolder'] or c['DeletionMark'] or want not in tags[ref]:
+        if c['IsFolder'] or want not in tags[ref]:
             continue
+        if c['DeletionMark']:
+            deleted.append(c['Description'])
+            if not args.include_deleted:
+                continue
         t, x = tags[ref], extra[ref]
         rec = {f: '' for f in FIELDS}
         rec['client_id'] = c['Code']
@@ -108,20 +130,23 @@ def main() -> int:
         rec['opf'] = 'ИП' if c['ВидКонтрагента'] == 'ИндивидуальныйПредприниматель' or 'ип' in t else 'ООО'
 
         sno_raw = x.get('СНО', '')
-        if 'аусн' in t:
+        hire_only = 'только найм' in t or sno_raw.lower() == 'найм'
+        if hire_only:
+            sno_raw = 'НАЙМ'
+        elif 'аусн' in t:
             # тег АУСН главнее реквизита: реквизит «СНО» часто остаётся от прошлого режима
             obj = '-ДР' if 'усн доходы-расходы' in t else '-Д' if 'усн доходы' in t else ''
             if not obj:
                 notes.append(f'{c["Description"]}: АУСН без объекта (доходы / доходы-расходы) — '
                              'первичка запрашивается')
             sno_raw = 'АУСН' + obj
-        elif not sno_raw or sno_raw.lower() == 'найм':
+        elif not sno_raw:
             for tag, value in (('аусн', 'АУСН'), ('есхн', 'ЕСХН'), ('осно', 'ОСНО'),
                                ('усн доходы-расходы', 'УСН-ДР'), ('усн доходы', 'УСН-Д')):
                 if tag in t:
                     sno_raw = value
                     break
-        rec['sno'] = sno_raw if sno_raw.startswith('АУСН') else norm_sno(sno_raw) if sno_raw else ''
+        rec['sno'] = sno_raw if sno_raw.startswith(('АУСН', 'НАЙМ')) else norm_sno(sno_raw) if sno_raw else ''
         add = x.get('Доп к СНО', '')
         rec['nds'] = '1' if 'ндс' in t or 'ндс' in add.lower() or rec['sno'] == 'ОСНО' else '0'
         rec['psn'] = '1' if is_patent(add) or 'патент' in t else '0'
@@ -140,7 +165,9 @@ def main() -> int:
         rec['assistant'] = x.get('Бухгалтер Первичник', '')
         rec['payroll'] = x.get('Бухгалтер ЗП', '')
         rec['manager'] = staff.get(c['Ответственный_Key'], '')
-        if not rec['accountant']:
+        if not rec['accountant'] and hire_only and rec['payroll']:
+            rec['accountant'] = rec['payroll']
+        elif not rec['accountant']:
             rec['accountant'] = rec['manager']
             notes.append(f'{rec["name"]}: «Главный бухгалтер» не заполнен, задачи ушли ответственному')
         if has_staff:
@@ -158,6 +185,9 @@ def main() -> int:
         w.writerows(out)
 
     print(f'Клиентов с тегом «{args.tag}»: {len(out)} → {args.out}')
+    if deleted:
+        verb = 'включены в план' if args.include_deleted else 'пропущены (--include-deleted, чтобы взять)'
+        print(f'  ! помечены на удаление: {len(deleted)}, {verb}')
     for n in notes:
         print('  ! ' + n)
     return 0
