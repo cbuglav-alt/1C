@@ -72,12 +72,39 @@ class OData:
         raise SystemExit(f'{entity}: 1С отдаёт неполные данные, план не собран')
 
 
+def apply_overrides(path: str, clients: list[dict]) -> list[dict]:
+    """Поправки, которых нет в 1С: строка client_id;field;value;comment на одно поле клиента."""
+    if not os.path.exists(path):
+        return []
+    by_id = {c['client_id']: c for c in clients}
+    applied = []
+    with open(path, encoding='utf-8-sig') as f:
+        for row in csv.DictReader(f, delimiter=';'):
+            cid, field = (row.get('client_id') or '').strip(), (row.get('field') or '').strip()
+            if not cid or cid.startswith('#'):
+                continue
+            if field not in FIELDS:
+                raise SystemExit(f'{path}: неизвестное поле «{field}» у {cid}')
+            client = by_id.get(cid)
+            if client is None:
+                applied.append(f'поправка для {cid} не применена: клиента нет в выгрузке')
+                continue
+            value = (row.get('value') or '').strip()
+            if client[field] != value:
+                applied.append(f'{client["name"]}: {field} {client[field] or "—"} → {value or "—"} '
+                               f'(поправка{": " + row["comment"].strip() if row.get("comment") else ""})')
+                client[field] = value
+    return applied
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description='Выгрузка клиентов из 1С:УНФ через OData')
     ap.add_argument('--tag', default='Аутсорсинг', help='брать только контрагентов с этим тегом')
     ap.add_argument('--out', default=os.path.join(ROOT, 'data/clients.csv'))
     ap.add_argument('--advance-day', default='20', help='день аванса, если в карточке не указан')
     ap.add_argument('--salary-day', default='5', help='день зарплаты, если в карточке не указан')
+    ap.add_argument('--overrides', default=os.path.join(ROOT, 'data/overrides.csv'),
+                    help='ручные поправки поверх 1С: client_id;field;value;comment')
     ap.add_argument('--include-deleted', action='store_true',
                     help='брать и контрагентов, помеченных на удаление')
     args = ap.parse_args()
@@ -167,6 +194,7 @@ def main() -> int:
         rec['status'] = 'active'
         out.append(rec)
 
+    applied = apply_overrides(args.overrides, out)
     out.sort(key=lambda r: r['name'])
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, 'w', encoding='utf-8', newline='') as f:
@@ -180,6 +208,8 @@ def main() -> int:
         print(f'  ! помечены на удаление: {len(deleted)}, {verb}')
     for n in notes:
         print('  ! ' + n)
+    for n in applied:
+        print('  ✎ ' + n)
     return 0
 
 
