@@ -1,0 +1,240 @@
+<title>План задач · __MONTH_TITLE__</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Рабочий реестр: шапка с выгрузками и сводкой, фильтры, таблица задач по клиентам или по датам */
+:root{
+  --bg:#f5f6f4; --surface:#ffffff; --fg:#1b2420; --muted:#5e6b65; --line:#dfe4e1;
+  --accent:#1f6f5c; --accent-fg:#ffffff; --accent-soft:#e3f0ec;
+  --crit-a:#b3261e; --crit-a-soft:#fbe9e7; --crit-b:#8a5a00; --crit-b-soft:#fbf1dc; --crit-c:#5e6b65; --crit-c-soft:#eef1ef;
+  --f-body:"Golos Text",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121715; --surface:#19201d; --fg:#e4ebe7; --muted:#9aa8a1; --line:#2b3531;
+  --accent:#5cc2a6; --accent-fg:#0d1512; --accent-soft:#1d3029;
+  --crit-a:#ff8a80; --crit-a-soft:#3a1d1b; --crit-b:#e8b95a; --crit-b-soft:#352a14; --crit-c:#9aa8a1; --crit-c-soft:#232b28;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121715; --surface:#19201d; --fg:#e4ebe7; --muted:#9aa8a1; --line:#2b3531;
+  --accent:#5cc2a6; --accent-fg:#0d1512; --accent-soft:#1d3029;
+  --crit-a:#ff8a80; --crit-a-soft:#3a1d1b; --crit-b:#e8b95a; --crit-b-soft:#352a14; --crit-c:#9aa8a1; --crit-c-soft:#232b28;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--f-body)}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;justify-content:space-between}
+h1{margin:0;font-size:1.6rem;font-weight:700;letter-spacing:-.01em;text-wrap:balance}
+.sub{margin:4px 0 0;color:var(--muted)}
+.fresh{margin:2px 0 0;color:var(--muted);font-size:.88rem;font-variant-numeric:tabular-nums}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;cursor:pointer;border-radius:8px;padding:9px 14px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+button.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg);font-weight:600}
+button.refresh{border-color:var(--accent);color:var(--fg)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button[disabled]{opacity:.55;cursor:default}
+.status{min-height:1.2em;color:var(--muted);font-size:.9rem;margin:0}
+.stats{display:flex;flex-wrap:wrap;gap:6px 22px;color:var(--muted);font-size:.92rem}
+.stats b{color:var(--fg);font-variant-numeric:tabular-nums}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;padding:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.filters label{display:grid;gap:4px;font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;min-width:0}
+select,input{font:inherit;font-size:.95rem;text-transform:none;letter-spacing:0;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:8px 10px;width:100%;min-width:0}
+.people{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-size:.85rem;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.chip[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--fg)}
+.chip span{color:var(--muted);font-variant-numeric:tabular-nums;margin-left:4px}
+.client{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.client>summary{list-style:none;cursor:pointer;padding:12px 14px;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline}
+.client>summary::-webkit-details-marker{display:none}
+.client>summary::before{content:"▸";color:var(--muted);transition:transform .15s}
+.client[open]>summary::before{transform:rotate(90deg)}
+.cname{font-weight:600}
+.meta{color:var(--muted);font-size:.85rem;display:flex;flex-wrap:wrap;gap:4px 12px}
+.tag{font-size:.75rem;padding:1px 7px;border-radius:5px;background:var(--accent-soft);color:var(--fg)}
+.team{padding:0 14px 10px;color:var(--muted);font-size:.85rem;display:flex;flex-wrap:wrap;gap:4px 16px}
+.team b{font-weight:500;color:var(--fg)}
+.scroll{overflow-x:auto;border-top:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;min-width:760px;font-size:.9rem}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:.75rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:500;background:var(--bg)}
+tr:last-child td{border-bottom:0}
+.d{font-family:var(--f-mono);font-size:.84rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.code{font-family:var(--f-mono);font-size:.8rem;color:var(--muted);white-space:nowrap}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.crit{display:inline-block;font-size:.75rem;padding:1px 7px;border-radius:5px;white-space:nowrap}
+.crit.A{background:var(--crit-a-soft);color:var(--crit-a)} .crit.B{background:var(--crit-b-soft);color:var(--crit-b)} .crit.C{background:var(--crit-c-soft);color:var(--crit-c)}
+.list{display:grid;gap:10px}
+.notes{background:var(--crit-b-soft);border:1px solid var(--line);border-left:4px solid var(--crit-b);border-radius:8px;padding:10px 14px}
+.notes h2{margin:0 0 4px;font-size:.95rem;font-weight:600}
+.notes ul{margin:0;padding-left:18px;display:grid;gap:2px;font-size:.92rem}
+.view{display:flex;flex-wrap:wrap;gap:6px;align-items:center;color:var(--muted);font-size:.9rem}
+.day>summary .cname{font-variant-numeric:tabular-nums}
+.day .wd{color:var(--muted);font-weight:400}
+.empty{padding:24px;text-align:center;color:var(--muted);background:var(--surface);border:1px dashed var(--line);border-radius:10px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>План задач на __MONTH_TITLE__</h1>
+      <p class="sub">Клиенты с тегом «Аутсорсинг» по данным 1С. Сроки внутренние, законный срок — отдельной колонкой.</p>
+      <p class="fresh" id="fresh"></p>
+    </div>
+    <div class="actions">
+      <button class="refresh" id="refresh" type="button" hidden>Обновить из 1С</button>
+      <button class="primary" id="dl-xlsx" type="button">Скачать Excel</button>
+      <button id="dl-crm" type="button">Скачать импорт для Финкупера (CSV)</button>
+    </div>
+  </header>
+  <p class="status" id="status" role="status"></p>
+  <section class="notes" id="notes" hidden>
+    <h2>Проверить в 1С</h2>
+    <ul id="notes-list"></ul>
+  </section>
+  <div class="stats" id="stats"></div>
+  <div class="filters">
+    <label for="f-client">Клиент<select id="f-client"><option value="">Все клиенты</option></select></label>
+    <label for="f-block">Категория<select id="f-block"><option value="">Все категории</option></select></label>
+    <label for="f-date">Срок (дата)<input id="f-date" type="date"></label>
+    <label for="f-q">Поиск по задаче<input id="f-q" type="search" placeholder="например, НДС или УПД"></label>
+  </div>
+  <div class="view" role="group" aria-label="Как показать задачи">
+    <span>Показать:</span>
+    <button type="button" class="chip" data-view="date" aria-pressed="false">по датам</button>
+    <button type="button" class="chip" data-view="client" aria-pressed="true">по клиентам</button>
+  </div>
+  <div class="people" id="people" aria-label="Исполнитель"></div>
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+const D=/*DATA*/null;
+const XLSX_B64="__XLSX__", CRM_B64="__CRM__";
+const S=D.s, SNO={"УСН-Д":"УСН доходы","УСН-ДР":"УСН доходы−расходы","АУСН-Д":"АУСН доходы","АУСН-ДР":"АУСН доходы−расходы","АУСН":"АУСН","ОСНО":"ОСНО","ЕСХН":"ЕСХН","НАЙМ":"Только найм","":"СНО не указана"};
+const tasks=D.t.map(t=>({cid:S[t[0]],code:S[t[1]],title:S[t[2]],block:S[t[3]],who:S[t[4]],start:t[5],due:t[6],legal:t[7],crit:t[8],min:t[9]}));
+const clients=D.c;
+const $=id=>document.getElementById(id);
+const ru=md=>md?md.slice(3)+"."+md.slice(0,2):"—";
+const esc=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const state={client:"",block:"",q:"",who:"",date:"",view:"client"};
+try{const v=localStorage.getItem("plan-view");if(v==="date"||v==="client")state.view=v}catch(e){}
+const WD=["вс","пн","вт","ср","чт","пт","сб"], MON=["","января","февраля","марта","апреля","мая","июня","июля","августа","сентября","октября","ноября","декабря"];
+const YEAR=D.y, MM=String(D.m).padStart(2,"0");
+const dayLabel=md=>{const m=+md.slice(0,2),d=+md.slice(3);return {text:`${d} ${MON[m]}`,wd:WD[new Date(YEAR,m-1,d).getDay()]}};
+$("f-date").min=`${YEAR}-${MM}-01`;$("f-date").max=`${YEAR}-${MM}-${new Date(YEAR,D.m,0).getDate()}`;
+$("fresh").textContent=`Данные из 1С на ${D.at} (МСК)`;
+
+function fillSelects(){
+  const byName=Object.entries(clients).sort((a,b)=>a[1][0].localeCompare(b[1][0],"ru"));
+  $("f-client").insertAdjacentHTML("beforeend",byName.map(([id,c])=>`<option value="${esc(id)}">${esc(c[0])}</option>`).join(""));
+  const blocks=[...new Set(tasks.map(t=>t.block))].sort((a,b)=>a.localeCompare(b,"ru"));
+  $("f-block").insertAdjacentHTML("beforeend",blocks.map(b=>`<option>${esc(b)}</option>`).join(""));
+}
+function filtered(ignoreWho){
+  const q=state.q.trim().toLowerCase();
+  return tasks.filter(t=>(!state.date||t.due===state.date)&&(!state.client||t.cid===state.client)&&(!state.block||t.block===state.block)&&(ignoreWho||!state.who||t.who===state.who)&&(!q||t.title.toLowerCase().includes(q)||t.code.toLowerCase().includes(q)));
+}
+function renderPeople(){
+  const counts={};filtered(true).forEach(t=>counts[t.who]=(counts[t.who]||0)+1);
+  const names=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  const total=Object.values(counts).reduce((a,b)=>a+b,0);
+  $("people").innerHTML=[`<button type="button" class="chip" data-who="" aria-pressed="${!state.who}">Все сотрудники<span>${total}</span></button>`]
+    .concat(names.map(n=>`<button type="button" class="chip" data-who="${esc(n)}" aria-pressed="${state.who===n}">${esc(n)}<span>${counts[n]}</span></button>`)).join("");
+}
+const CRIT={A:"высокий",B:"средний",C:"низкий"};
+function render(){
+  renderPeople();
+  const rows=filtered(false);
+  const byClient=new Map();
+  rows.forEach(t=>{if(!byClient.has(t.cid))byClient.set(t.cid,[]);byClient.get(t.cid).push(t)});
+  const hours=rows.reduce((a,t)=>a+t.min,0)/60;
+  $("stats").innerHTML=`<span>Задач: <b>${rows.length}</b></span><span>Клиентов: <b>${byClient.size}</b></span><span>Плановое время: <b>${hours.toFixed(1).replace(".",",")} ч</b></span><span>Высокий приоритет: <b>${rows.filter(t=>t.crit==="A").length}</b></span>`;
+  document.querySelectorAll(".view .chip").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.view===state.view)));
+  if(!rows.length){$("list").innerHTML=`<div class="empty">Под выбранные фильтры задач нет. Сбросьте дату, клиента, категорию или поиск.</div>`;return}
+  if(state.view==="date"){renderByDate(rows);return}
+  const order=[...byClient.keys()].sort((a,b)=>clients[a][0].localeCompare(clients[b][0],"ru"));
+  const open=state.client||state.who||state.q||order.length<=3;
+  $("list").innerHTML=order.map(cid=>{
+    const c=clients[cid], ts=byClient.get(cid).sort((a,b)=>a.due.localeCompare(b.due)||a.code.localeCompare(b.code));
+    const tags=[c[4]==="1"&&"НДС",c[5]==="1"&&"патент",c[6]==="1"&&"сотрудники",c[7]==="1"&&"ККТ",c[8]==="1"&&"нулевщик",c[9]==="1"&&"маркетплейс"].filter(Boolean);
+    const team=[["Главбух",c[10]],["Первичник",c[11]],["ЗП",c[12]],["Ответственный",c[13]]].filter(x=>x[1]).map(([k,v])=>`<span>${k}: <b>${esc(v)}</b></span>`).join("");
+    return `<details class="client"${open?" open":""}><summary><span class="cname">${esc(c[0])}</span><span class="meta"><span>ИНН ${esc(c[1])}</span><span>${esc(c[2])} · ${esc(SNO[c[3]]??c[3])}</span>${tags.map(x=>`<span class="tag">${x}</span>`).join("")}<span>${ts.length} задач</span></span></summary>
+    <div class="team">${team}</div>
+    <div class="scroll"><table><thead><tr><th>Срок</th><th>Код</th><th>Задача</th><th>Исполнитель</th><th>Начало</th><th>По закону</th><th>Приоритет</th><th class="num">Мин</th></tr></thead><tbody>
+    ${ts.map(t=>`<tr><td class="d">${ru(t.due)}</td><td class="code">${esc(t.code)}</td><td>${esc(t.title)}</td><td>${esc(t.who)}</td><td class="d">${ru(t.start)}</td><td class="d">${ru(t.legal)}</td><td><span class="crit ${t.crit}">${CRIT[t.crit]||t.crit}</span></td><td class="num">${t.min}</td></tr>`).join("")}
+    </tbody></table></div></details>`}).join("");
+}
+function renderByDate(rows){
+  const byDay=new Map();
+  rows.forEach(t=>{if(!byDay.has(t.due))byDay.set(t.due,[]);byDay.get(t.due).push(t)});
+  const days=[...byDay.keys()].sort();
+  const open=state.date||state.who||state.client||state.q||days.length<=3;
+  $("list").innerHTML=days.map(d=>{
+    const l=dayLabel(d), ts=byDay.get(d).sort((a,b)=>a.who.localeCompare(b.who,"ru")||clients[a.cid][0].localeCompare(clients[b.cid][0],"ru")||a.code.localeCompare(b.code));
+    const min=ts.reduce((a,t)=>a+t.min,0);
+    return `<details class="client day"${open?" open":""}><summary><span class="cname">${l.text} <span class="wd">${l.wd}</span></span><span class="meta"><span>${ts.length} задач</span><span>${(min/60).toFixed(1).replace(".",",")} ч</span>${ts.some(t=>t.crit==="A")?`<span class="crit A">высокий: ${ts.filter(t=>t.crit==="A").length}</span>`:""}</span></summary>
+    <div class="scroll"><table><thead><tr><th>Клиент</th><th>Код</th><th>Задача</th><th>Исполнитель</th><th>По закону</th><th>Приоритет</th><th class="num">Мин</th></tr></thead><tbody>
+    ${ts.map(t=>`<tr><td>${esc(clients[t.cid][0])}</td><td class="code">${esc(t.code)}</td><td>${esc(t.title)}</td><td>${esc(t.who)}</td><td class="d">${ru(t.legal)}</td><td><span class="crit ${t.crit}">${CRIT[t.crit]||t.crit}</span></td><td class="num">${t.min}</td></tr>`).join("")}
+    </tbody></table></div></details>`}).join("");
+}
+$("f-date").addEventListener("change",e=>{state.date=e.target.value?e.target.value.slice(5):"";if(state.date&&state.view!=="date")setView("date");else render()});
+function setView(v){state.view=v;try{localStorage.setItem("plan-view",v)}catch(e){}render()}
+document.querySelector(".view").addEventListener("click",e=>{const b=e.target.closest(".chip");if(b)setView(b.dataset.view)});
+$("f-client").addEventListener("change",e=>{state.client=e.target.value;render()});
+$("f-block").addEventListener("change",e=>{state.block=e.target.value;render()});
+$("f-q").addEventListener("input",e=>{state.q=e.target.value;render()});
+$("people").addEventListener("click",e=>{const b=e.target.closest(".chip");if(!b)return;state.who=b.dataset.who;render()});
+
+function bytes(b64){const bin=atob(b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u}
+const say=m=>{$("status").textContent=m};
+async function save(filename,b64){
+  const dl=await (window.claude?.use?.("downloads")??null);
+  if(!dl){say("Скачивание недоступно в этом окне. Откройте страницу на claude.ai в браузере.");return}
+  try{const r=await dl.save({filename,data:new Blob([bytes(b64)])});if(r.status==="saved")say(`Файл «${filename}» сохранён.`)}
+  catch(err){say(err&&err.code==="declined"?"Скачивание отменено.":err&&err.code==="rate_limited"?"Окно сохранения уже открыто — завершите его.":"Не удалось сохранить файл: "+(err&&err.message||"ошибка"))}
+}
+$("dl-xlsx").addEventListener("click",()=>save("__XLSX_NAME__",XLSX_B64));
+$("dl-crm").addEventListener("click",()=>save("__CRM_NAME__",CRM_B64));
+
+/* Обновление из 1С: кнопка запускает Routine в Claude Code, который выгружает 1С,
+   пересобирает план и публикует страницу заново — открытая страница перезагрузится сама. */
+const SERVER="Claude Code Remote";
+const REFRESH_MSG={
+  server_not_connected:"Коннектор Claude Code Remote не подключён. Подключите его в claude.ai → Настройки → Коннекторы.",
+  needs_reauth:"Переподключите Claude Code Remote в claude.ai → Настройки → Коннекторы.",
+  not_in_manifest:"Запуск обновления для этой страницы не разрешён. Разрешите доступ к Claude Code Remote, когда страница спросит.",
+  blocked_by_policy:"Запуск обновления запрещён настройками организации.",
+  selection_required:"Выберите, какой коннектор Claude Code Remote использовать, в окне claude.ai.",
+  tool_error:"Claude Code не принял запрос: ",
+  server_unavailable:"Сервис не ответил. Проверьте через пару минут, обновилась ли дата данных, и только потом нажмите ещё раз.",
+  upstream_error:"Сервис не ответил. Проверьте через пару минут, обновилась ли дата данных, и только потом нажмите ещё раз."
+};
+function pendingSince(){try{return +localStorage.getItem("plan-refresh-at")||0}catch(e){return 0}}
+function markPending(v){try{v?localStorage.setItem("plan-refresh-at",String(v)):localStorage.removeItem("plan-refresh-at")}catch(e){}}
+async function setupRefresh(){
+  if(!D.trig)return;
+  const mcp=await (window.claude?.use?.("mcp")??null);
+  if(!mcp)return;
+  const btn=$("refresh");btn.hidden=false;
+  const since=pendingSince();
+  if(since&&Date.now()-since<15*60e3){say("Обновление из 1С уже запрошено — страница перезагрузится сама, когда план будет готов (обычно 3–5 минут).")}
+  else markPending(0);
+  btn.addEventListener("click",async()=>{
+    btn.disabled=true;say("Отправляю запрос на обновление…");
+    try{
+      await mcp.callTool(SERVER,"fire_trigger",{trigger_id:D.trig,text:"Нажата кнопка «Обновить из 1С» на странице плана."},{cache:false});
+      markPending(Date.now());
+      say("Запрос отправлен. План пересобирается из 1С — страница перезагрузится сама, обычно через 3–5 минут.");
+    }catch(err){
+      const code=err&&err.code;
+      say(code==="tool_error"?REFRESH_MSG.tool_error+(err.message||""):REFRESH_MSG[code]||("Не удалось запустить обновление: "+(err&&err.message||code||"ошибка")));
+      btn.disabled=false;
+    }
+  });
+}
+
+if((D.n||[]).length){$("notes-list").innerHTML=D.n.map(n=>`<li>${esc(n)}</li>`).join("");$("notes").hidden=false}
+fillSelects();render();setupRefresh();
+</script>
