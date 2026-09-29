@@ -33,7 +33,8 @@ SYNONYMS = {
     'opf': ['opf', 'опф', 'форма собственности', 'организационно-правовая форма', 'тип клиента'],
     'sno': ['sno', 'сно', 'система налогообложения', 'налоговый режим', 'режим налогообложения'],
     'nds': ['nds', 'ндс', 'плательщик ндс'],
-    'employees': ['employees', 'сотрудники', 'количество сотрудников', 'численность', 'штат'],
+    'employees': ['employees', 'сотрудники', 'количество сотрудников', 'численность', 'штат',
+                  'кол-во сотрудников'],
     'gph': ['gph', 'гпх', 'договоры гпх', 'подрядчики'],
     'kassa': ['kassa', 'касса', 'ккт', 'онлайн-касса'],
     'ved': ['ved', 'вэд', 'внешнеэкономическая деятельность', 'импорт', 'экспорт'],
@@ -48,7 +49,8 @@ SYNONYMS = {
     'advance_day': ['advance_day', 'день аванса', 'аванс'],
     'salary_day': ['salary_day', 'день зарплаты', 'зарплата выплата', 'день выплаты'],
     'status': ['status', 'статус', 'состояние'],
-    'start_date': ['start_date', 'дата начала', 'начало обслуживания', 'дата договора'],
+    'start_date': ['start_date', 'дата начала', 'дата начала обслуживания',
+                   'начало обслуживания', 'дата договора'],
 }
 
 # Поля, без которых задачи по клиенту не сгенерируются корректно
@@ -83,24 +85,55 @@ def build_mapping(headers: list[str], override: dict) -> dict:
     return mapping
 
 
-def read_rows(path: str) -> tuple[list[dict], list[str]]:
+def _header_score(cells: list[str]) -> int:
+    """Сколько ячеек строки похожи на заголовки известных полей."""
+    names = {norm(v) for variants in SYNONYMS.values() for v in variants}
+    return sum(1 for c in cells if norm(c) in names)
+
+
+def _rows_from_grid(grid: list[list[str]]) -> tuple[list[dict], list[str]]:
+    """Находит строку заголовков (не обязательно первую) и разбирает остальное."""
+    if not grid:
+        return [], []
+    best, score = 0, -1
+    for i, row in enumerate(grid[:15]):
+        sc = _header_score(row)
+        if sc > score:
+            best, score = i, sc
+    headers = [h.strip() for h in grid[best]]
+    rows = []
+    for raw in grid[best + 1:]:
+        rec = dict(zip(headers, raw))
+        if any((v or '').strip() for v in rec.values()):
+            rows.append(rec)
+    return rows, headers
+
+
+def read_rows(path: str, sheet: str | None = None) -> tuple[list[dict], list[str]]:
     if path.lower().endswith(('.xlsx', '.xlsm')):
         try:
             from openpyxl import load_workbook
         except ImportError:
             raise SystemExit('Для .xlsx нужен openpyxl: pip install openpyxl. '
                              'Либо сохраните выгрузку как CSV.')
-        ws = load_workbook(path, read_only=True, data_only=True).active
-        it = ws.iter_rows(values_only=True)
-        headers = [str(c) if c is not None else '' for c in next(it)]
-        rows = [dict(zip(headers, [('' if c is None else str(c)) for c in r])) for r in it]
-        return rows, headers
+        wb = load_workbook(path, read_only=True, data_only=True)
+        names = [sheet] if sheet else wb.sheetnames
+        best_rows, best_headers, best_score = [], [], -1
+        for nm in names:
+            grid = [[('' if c is None else str(c)) for c in r]
+                    for r in wb[nm].iter_rows(values_only=True)]
+            rows, headers = _rows_from_grid(grid)
+            sc = _header_score(headers)
+            if sc > best_score:
+                best_rows, best_headers, best_score = rows, headers, sc
+        return best_rows, best_headers
+
     with open(path, encoding='utf-8-sig') as f:
-        sample = f.read(4096)
+        sample = f.read(8192)
         f.seek(0)
         delim = ';' if sample.count(';') >= sample.count(',') else ','
-        rdr = csv.DictReader(f, delimiter=delim)
-        return [r for r in rdr if any((v or '').strip() for v in r.values())], list(rdr.fieldnames or [])
+        grid = [row for row in csv.reader(f, delimiter=delim)]
+    return _rows_from_grid(grid)
 
 
 def get(row: dict, mapping: dict, field: str) -> str:

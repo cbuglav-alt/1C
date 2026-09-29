@@ -12,14 +12,19 @@
 | **Каталог задач** | `data/task_catalog.csv` | 63 типовые задачи с периодичностью, сроками, ролью и правилом применимости |
 | **Производственный календарь** | `data/holidays.csv` | Переносы сроков на рабочие дни |
 | **Генератор плана** | `tools/generate_plan.py` | Разворачивает каталог на клиентов и выдаёт план на месяц |
+| **Шаблон для заполнения** | `templates/` | XLSX со списками значений и инструкцией |
+| **Импорт и аудит** | `tools/import_clients.py`, `tools/audit_clients.py` | Приём выгрузки из CRM и проверка полноты данных |
 | **Регламенты** | `regulations/` | Роли, SLA, онбординг, эскалации, настройка CRM |
 | **Чек-листы** | `regulations/checklists/` | Пошаговые инструкции внутри задач |
 
 ## Быстрый старт
 
 ```bash
-# 1. Заполните свой справочник клиентов
-cp data/clients.sample.csv data/clients.csv
+# 1. Заполните справочник клиентов: шаблон в templates/ либо выгрузка из CRM
+python3 tools/import_clients.py --file "Справочник клиентов.xlsx"
+
+# 1a. Проверьте, что заполнено
+python3 tools/audit_clients.py --file data/clients.csv
 
 # 2. Сформируйте план на следующий месяц
 python3 tools/generate_plan.py --month 2026-10 --clients data/clients.csv
