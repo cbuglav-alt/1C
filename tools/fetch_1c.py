@@ -103,6 +103,8 @@ def main() -> int:
     ap.add_argument('--out', default=os.path.join(ROOT, 'data/clients.csv'))
     ap.add_argument('--advance-day', default='20', help='день аванса, если в карточке не указан')
     ap.add_argument('--salary-day', default='5', help='день зарплаты, если в карточке не указан')
+    ap.add_argument('--notes', default=os.path.join(ROOT, 'out/fetch_notes.txt'),
+                    help='куда записать замечания по карточкам (для отчёта и страницы плана)')
     ap.add_argument('--overrides', default=os.path.join(ROOT, 'data/overrides.csv'),
                     help='ручные поправки поверх 1С: client_id;field;value;comment')
     ap.add_argument('--include-deleted', action='store_true',
@@ -189,6 +191,11 @@ def main() -> int:
             notes.append(f'{rec["name"]}: «Главный бухгалтер» не заполнен, задачи ушли ответственному')
         if has_staff:
             rec['advance_day'], rec['salary_day'] = args.advance_day, args.salary_day
+        salary_tags = [n for n in ('работодатель', 'только найм') if n in t]
+        if (salary_tags or hire_only) and not rec['payroll']:
+            why = ', '.join(f'«{n.capitalize()}»' for n in salary_tags) or 'СНО «Найм»'
+            notes.append(f'{rec["name"]}: {why}, но «Бухгалтер ЗП» не указан — '
+                         f'зарплатные задачи пока у главбуха ({rec["accountant"] or "не указан"})')
         if not rec['sno']:
             notes.append(f'{rec["name"]}: поле «СНО» не заполнено — налоговые задачи по режиму не созданы')
         rec['status'] = 'active'
@@ -210,6 +217,9 @@ def main() -> int:
         print('  ! ' + n)
     for n in applied:
         print('  ✎ ' + n)
+    os.makedirs(os.path.dirname(args.notes), exist_ok=True)
+    with open(args.notes, 'w', encoding='utf-8') as f:
+        f.write(''.join(n + '\n' for n in notes))
     return 0
 
 
