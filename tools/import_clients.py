@@ -23,7 +23,7 @@ from generate_plan import BOOL_FIELDS  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIELDS = ['client_id', 'name', 'inn', 'opf', 'sno', 'nds', 'psn', 'employees', 'gph', 'kassa',
-          'ved', 'prop', 'alco', 'mark', 'op', 'accountant', 'assistant', 'payroll', 'chief',
+          'ved', 'prop', 'alco', 'mark', 'op', 'accountant', 'assistant', 'payroll', 'chief', 'manager',
           'tariff', 'advance_day', 'salary_day', 'status', 'start_date']
 
 # Написания режимов, которые встречаются в базах: «УСН д», «УСН д-р», «УСН 6%» и т.п.
@@ -122,7 +122,7 @@ def main() -> int:
         if is_patent(get(row, mapping, 'psn')):
             rec['psn'] = '1'
         rec['employees'] = to_int(get(row, mapping, 'employees'))
-        for f in ('accountant', 'assistant', 'payroll', 'chief', 'tariff'):
+        for f in ('accountant', 'assistant', 'payroll', 'chief', 'manager', 'tariff'):
             rec[f] = get(row, mapping, f)
         rec['advance_day'] = to_int(get(row, mapping, 'advance_day'))
         rec['salary_day'] = to_int(get(row, mapping, 'salary_day'))

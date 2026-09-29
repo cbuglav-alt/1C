@@ -203,6 +203,7 @@ def assignee_for(role: str, client: dict) -> str:
         'PAYROLL': client.get('payroll') or client.get('accountant', ''),
         'CHIEF': client.get('chief') or client.get('accountant', ''),
         'HEAD': client.get('chief') or client.get('accountant', ''),
+        'CLIENT': client.get('manager') or client.get('accountant', ''),
     }
     return mapping.get(role, client.get('accountant', ''))
 
